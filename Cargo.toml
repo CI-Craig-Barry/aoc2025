@@ -1,0 +1,12 @@
+[package]
+name = "aoc2025"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+criterion = { version = "0.8.1", features = ["html_reports"] }
+colored = "2"
+
+[[bench]]
+name = "benchmark"
+harness = false
