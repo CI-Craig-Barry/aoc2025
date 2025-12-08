@@ -36,7 +36,6 @@ pub mod utils {
     assert_result("Task 1 Sample", result, details.task1_sample_expected);
     result = (details.task1_function)(&details.input);
     assert_result("Task 1 Input", result, details.task1_input_expected);
-
     result = (details.task2_function)(&details.sample);
     assert_result("Task 2 Sample", result, details.task2_sample_expected);
     result = (details.task2_function)(&details.input);

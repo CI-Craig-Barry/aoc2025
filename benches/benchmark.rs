@@ -1,3 +1,5 @@
+extern crate core;
+
 // use std::fmt::Display;
 use criterion::{Criterion, criterion_group, criterion_main};
 use aoc2025::utils;
