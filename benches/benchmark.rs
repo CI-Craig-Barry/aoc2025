@@ -6,6 +6,8 @@ use aoc2025::utils;
 mod day5;
 #[path = "../src/bin/day6/main.rs"]
 mod day6;
+#[path = "../src/bin/day7/main.rs"]
+mod day7;
 
 fn benchmark(
   crit: &mut Criterion,
@@ -30,5 +32,11 @@ fn day6_bench(crit: &mut Criterion)
   benchmark(crit, &day6::get_details());
 }
 
-criterion_group!(benches, day5_bench, day6_bench);
+fn day7_bench(crit: &mut Criterion)
+{
+  benchmark(crit, &day7::get_details());
+}
+
+// criterion_group!(benches, day5_bench, day6_bench, day7_bench);
+criterion_group!(benches, day7_bench);
 criterion_main!(benches);
