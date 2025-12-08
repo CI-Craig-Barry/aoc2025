@@ -8,6 +8,8 @@ mod day5;
 mod day6;
 #[path = "../src/bin/day7/main.rs"]
 mod day7;
+#[path = "../src/bin/day8/main.rs"]
+mod day8;
 
 fn benchmark(
   crit: &mut Criterion,
@@ -37,6 +39,11 @@ fn day7_bench(crit: &mut Criterion)
   benchmark(crit, &day7::get_details());
 }
 
-// criterion_group!(benches, day5_bench, day6_bench, day7_bench);
-criterion_group!(benches, day7_bench);
+fn day8_bench(crit: &mut Criterion)
+{
+  benchmark(crit, &day8::get_details());
+}
+
+// criterion_group!(benches, day5_bench, day6_bench, day7_bench, day8_bench);
+criterion_group!(benches, day8_bench);
 criterion_main!(benches);
