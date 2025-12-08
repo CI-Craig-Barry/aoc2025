@@ -1,8 +1,9 @@
+use std::cmp::max;
 use aoc2025::utils;
 
 pub fn get_details() -> utils::ExecDetails {
   return utils::ExecDetails {
-    day: 5,
+    day: 6,
     sample: include_str!("sample").to_string(),
     input: include_str!("input").to_string(),
     task1_function: task1,
@@ -10,7 +11,7 @@ pub fn get_details() -> utils::ExecDetails {
     task1_sample_expected: 4277556,
     task1_input_expected: 7229350537438,
     task2_sample_expected: 3263827,
-    task2_input_expected: 0,
+    task2_input_expected: 11479269003550,
   };
 }
 
@@ -77,11 +78,11 @@ pub fn task1(file_input: &String) -> i64 {
       let input_index = (y * width) + x;
       let input: u64 = inputs[input_index] as u64;
 
-      if operation == PLUS as u8 {
-        col_result += input as u64;
+      if operation == PLUS {
+        col_result += input;
       }
       else {
-        col_result *= input as u64;
+        col_result *= input;
       }
     }
 
@@ -92,7 +93,86 @@ pub fn task1(file_input: &String) -> i64 {
 }
 
 pub fn task2(input: &String) -> i64 {
-  
+  //Super lazy
+  const WIDTH : usize = 4096;
+  const HEIGHT: usize = 8;
+  let mut matrix : [[i8; HEIGHT]; WIDTH] = [[-1; HEIGHT]; WIDTH];
+  let mut operations : [char; WIDTH] = [' '; WIDTH];
 
-  return 0;
+  let mut height = 0;
+  let mut width = 0;
+  input.as_str().lines()
+    .enumerate()
+    .for_each(|(line_idx, line)| {
+      height = max(height, line_idx);
+      line.as_bytes().iter().enumerate().for_each(|(byte_idx, byte)| {
+        if *byte >= b'0' && *byte <= b'9'
+        {
+          width = max(width, byte_idx + 1);
+          matrix[byte_idx][line_idx] = (*byte - b'0') as i8;
+        }
+        else if *byte != b' '
+        {
+          operations[byte_idx] = *byte as char;
+        }
+      })
+    });
+
+
+  let mut total: i64 = 0;
+  let mut cur_total: i64 = 0;
+  let mut last_operation = ' ';
+  //Iterate columns (add 1 to add an empty column to the end)
+  for x in 0..(width+1) {
+    let mut operation = operations[x];
+    if operation == ' '
+    {
+      operation = last_operation
+    }
+    else
+    {
+      last_operation = operation;
+      if operation == '*'
+      {
+        cur_total = 1;
+      }
+      else
+      {
+        cur_total = 0;
+      }
+    }
+
+    let mut has_value: bool = false;
+    let mut cur_val: i64 = 0;
+
+    //Iterate rows
+    for y in 0..height {
+      let data = matrix[x][y] as i64;
+
+      if data != -1
+      {
+        has_value = true;
+        cur_val *= 10;
+        cur_val += data;
+      }
+    }
+
+    if has_value
+    {
+      if operation == '*'
+      {
+        cur_total *= cur_val;
+      }
+      else
+      {
+        cur_total += cur_val;
+      }
+    }
+    else
+    {
+      total += cur_total;
+    }
+  }
+
+  return total;
 }
