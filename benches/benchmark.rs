@@ -3,7 +3,8 @@ extern crate core;
 // use std::fmt::Display;
 use criterion::{Criterion, criterion_group, criterion_main};
 use aoc2025::utils;
-
+#[path = "../src/bin/day4/main.rs"]
+mod day4;
 #[path = "../src/bin/day5/main.rs"]
 mod day5;
 #[path = "../src/bin/day6/main.rs"]
@@ -24,6 +25,11 @@ fn benchmark(
   group.bench_function("task2", |benchmark| {
     benchmark.iter(|| (details.task2_function)(&details.input))
   });
+}
+
+fn day4_bench(crit: &mut Criterion)
+{
+  benchmark(crit, &day4::get_details());
 }
 
 fn day5_bench(crit: &mut Criterion)
