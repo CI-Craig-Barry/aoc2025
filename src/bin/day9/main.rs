@@ -139,7 +139,7 @@ fn make_box(pt_1: &Point, pt_2: &Point) -> Box {
 }
 
 fn make_line(pt_1: &Point, pt_2: &Point) -> Line {
-    return if (pt_1.x == pt_2.x) {
+    return if pt_1.x == pt_2.x {
         Line {
             off_axis_coord: pt_1.x as i32,
             axis_min_coord: min(pt_1.y, pt_2.y) as i32,
@@ -168,7 +168,7 @@ fn make_lines(points: &Vec<Point>) -> (Vec<Line>, Vec<Line>) {
         let pt_2 = &points[index % num_points];
 
         let line = make_line(pt_1, pt_2);
-        if(line.line_type == VERTICAL) {
+        if line.line_type == VERTICAL {
             vertical_lines.push(line);
         }
         else {
@@ -228,7 +228,7 @@ pub fn task2(file_input: &String) -> i64 {
     for b in boxes {
         let mut collision = false;
         for line in horizontal_lines {
-            if(b.collides_with(&line))
+            if b.collides_with(&line)
             {
                 collision = true;
                 break;
@@ -237,7 +237,7 @@ pub fn task2(file_input: &String) -> i64 {
 
         if !collision {
             for line in vertical_lines {
-                if(b.collides_with(&line))
+                if b.collides_with(&line)
                 {
                     collision = true;
                     break;

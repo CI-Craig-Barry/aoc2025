@@ -59,6 +59,6 @@ fn day9_bench(crit: &mut Criterion)
   benchmark(crit, &day9::get_details());
 }
 
-// criterion_group!(benches, day5_bench, day6_bench, day7_bench, day8_bench, day9_bench);
-criterion_group!(benches, day9_bench);
+// criterion_group!(benches, day4_bench, day5_bench, day6_bench, day7_bench, day8_bench, day9_bench);
+criterion_group!(benches, day4_bench);
 criterion_main!(benches);
