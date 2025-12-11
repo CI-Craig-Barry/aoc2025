@@ -26,8 +26,8 @@ fn is_toilet_paper(
 ) -> bool
 {
   let index = (y_pos * width) + x_pos;
-  if(x_pos >= 0 && x_pos < width &&
-    y_pos >= 0 && index < toilet_paper_positions.len() as i32)
+  if x_pos >= 0 && x_pos < width &&
+    y_pos >= 0 && index < toilet_paper_positions.len() as i32
   {
     return toilet_paper_positions[index as usize];
   }

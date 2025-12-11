@@ -25,11 +25,11 @@ struct Point {
 }
 
 impl Point {
-  fn manhattan_dist(&self, other: &Point) -> i32 {
-    return (self.x - other.x).abs() +
-      (self.y - other.y).abs() +
-      (self.z - other.z).abs();
-  }
+  // fn manhattan_dist(&self, other: &Point) -> i32 {
+  //   return (self.x - other.x).abs() +
+  //     (self.y - other.y).abs() +
+  //     (self.z - other.z).abs();
+  // }
 
   fn euclidean_distance(&self, other: &Point) -> f64 {
     return (((self.x as i64 - other.x as i64).pow(2) +
@@ -167,8 +167,6 @@ pub fn task2(file_input: &String) -> i64 {
     points.push(point);
   }
 
-  let num_connections = if points.len() > 100 {1000} else {10};
-
   let mut pt_distances: Vec<PointDistance> = Vec::new();
 
   for i in 0..points.len() {
@@ -197,7 +195,7 @@ pub fn task2(file_input: &String) -> i64 {
     connections[pt_dist.pt2 as usize].push(pt_dist.pt1);
 
     let sizes = sort_circuit_sizes(&connections);
-    if(sizes.len() == 1) {
+    if sizes.len() == 1 {
       return points[pt_dist.pt1 as usize].x as i64 *
         points[pt_dist.pt2 as usize].x as i64;
     }

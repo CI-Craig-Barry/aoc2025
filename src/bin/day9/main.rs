@@ -25,12 +25,6 @@ struct Point {
 }
 
 impl Point {
-    fn manhattan_distance(self: &Point, other: &Point) -> u64
-    {
-        return ((self.x as i64 - other.x as i64).abs() +
-            (self.y as i64 - other.y as i64).abs()) as u64;
-    }
-
     fn area(self: &Point, other: &Point) -> u64
     {
         return (((self.x as i64 - other.x as i64).abs() + 1) *
@@ -193,13 +187,6 @@ pub fn task2(file_input: &String) -> i64 {
           };
       })
       .collect::<Vec<Point>>();
-    //
-    // horizontal_lines.sort_by(|l1, l2| {
-    //     return l1.axis_coord.cmp(l2.axis_coord);
-    // });
-    // vertical_lines.sort_by(|l1, l2| {
-    //     return l1.axis_coord.cmp(l2.axis_coord);
-    // });
 
     let mut boxes:Vec<Box> = Vec::new();
     for i in 0..points.len() {
