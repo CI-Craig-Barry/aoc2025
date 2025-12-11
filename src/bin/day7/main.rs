@@ -4,6 +4,7 @@ pub fn get_details() -> utils::ExecDetails {
   return utils::ExecDetails {
     day: 7,
     sample: include_str!("sample").to_string(),
+    sample2: None,
     input: include_str!("input").to_string(),
     task1_function: task1,
     task2_function: task2,

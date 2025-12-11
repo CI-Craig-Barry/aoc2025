@@ -1,18 +1,22 @@
-use std::cmp::{max, min};
+use std::cmp::{max, min, Reverse};
 use aoc2025::utils;
-use std::collections::{HashSet};
+use std::collections::{HashMap, HashSet};
+use std::ops::Add;
+use good_lp::{default_solver, variable, variables, Expression, Solution, SolverModel, Variable};
+use priority_queue::PriorityQueue;
 
 pub fn get_details() -> utils::ExecDetails {
     return utils::ExecDetails {
         day: 10,
         sample: include_str!("sample").to_string(),
+        sample2: None,
         input: include_str!("input").to_string(),
         task1_function: task1,
         task2_function: task2,
         task1_sample_expected: 7,
         task1_input_expected: 461,
         task2_sample_expected: 33,
-        task2_input_expected: 0,
+        task2_input_expected: 16386,
 };
 }
 
@@ -306,8 +310,649 @@ fn task2_attempt1(file_input: &String) -> i64 {
 
     return total as i64;
 }
+
+type Point = Vec<u16>;
+
+fn heuristic(current: &Point, goal: &Point) -> u32 {
+    // let mut h = 0;
+    //
+    // for i in 0..goal.len() {
+    //     let diff = goal[i] as i32 - current[i] as i32;
+    //     // h += diff as u32;
+    //     h = max(h, diff as u32);
+    // }
+    //
+    // return h;
+
+    return 0;
+}
+
+fn get_neighbours(
+    machine: &Machine,
+    current: &Point,
+    goal: &Point,
+) -> Vec<(u16, Point)>
+{
+    let mut results = Vec::new();
+
+    for button in &machine.buttons {
+        let mut num_presses = 1;
+
+        loop {
+            let mut neighbour_pt: Point = current.clone();
+            let mut neighbour_valid = true;
+            let mut g_cost = 0;
+
+            for wiring in button.get_button_wirings() {
+                neighbour_pt[wiring as usize] += num_presses;
+                g_cost += num_presses;
+
+                if neighbour_pt[wiring as usize] > goal[wiring as usize]
+                {
+                    neighbour_valid = false;
+                    break;
+                }
+            }
+
+            if !neighbour_valid {
+                break;
+            }
+
+            results.push((g_cost, neighbour_pt));
+            num_presses = num_presses + 1;
+        }
+    }
+
+    return results;
+}
+
+fn astar(
+    machine: &Machine,
+    start: &Point,
+    goal: &Point
+) -> u32
+{
+    let mut open_set = PriorityQueue::new();
+    let mut closed_set: HashSet<Point> = HashSet::new();
+    let mut g_scores: HashMap<Point, u32> = HashMap::new();
+    let mut came_from: HashMap<Point, Point> = HashMap::new();
+
+    let initial_h = heuristic(start, goal);
+    open_set.push(start.clone(), Reverse(initial_h));
+    g_scores.insert(start.clone(), 0);
+
+    while !open_set.is_empty() {
+        let current = open_set.pop().unwrap().0;
+
+        // println!("{:?}", open_set.clone().into_iter().collect::<Vec<_>>());
+        if current == *goal {
+            //TODO - Reconstruct path? Don't actually need to
+            let g_score = g_scores[&current];
+
+            let mut c = Some(goal);
+            while c.is_some() {
+                // println!("came from {:?} {}", c.unwrap(), g_scores[c.unwrap()]);
+                c = came_from.get(c.unwrap())
+            }
+
+            return g_score;
+        }
+
+        closed_set.insert(current.clone());
+
+        let neighbours = get_neighbours(machine, &current, &goal);
+
+        //Find neighbours of the current state
+        for neighbour in &neighbours {
+            let g_cost = neighbour.0;
+            let neighbour_pt = &neighbour.1;
+
+            //If neighbour is not a valid neighbour or is in the closed set, we skip it
+            if(closed_set.contains(neighbour_pt))
+            {
+                // println!("SKIP {}, {}", !neighbour_valid, closed_set.contains(&neighbour_pt));
+                continue;
+            }
+
+            //TODO - Could improve this by generating neighbours as n presses of button?
+            //G score is previous score + 1 as each neighbour requires 1 iteration
+            let tentative_g = g_scores.get(&current).unwrap() + g_cost as u32;
+            let h_cost = heuristic(&neighbour_pt, goal);
+            let f_cost = tentative_g + h_cost;
+
+            let open_set_neighbour = open_set.get(neighbour_pt);
+            //If we have not yet explored this neighbour, add it to the open set
+            if open_set_neighbour.is_none() {
+                open_set.push(neighbour_pt.clone(), Reverse(f_cost));
+            }
+            // This is worse than current method to this neighbour, ignore it
+            else if(tentative_g >= g_scores[open_set_neighbour.unwrap().0]) {
+                continue
+            }
+
+            // We found a better solution, override current solution
+            came_from.insert(neighbour_pt.clone(), current.clone());
+            let old_opt = open_set.change_priority(neighbour_pt, Reverse(f_cost));
+            if old_opt.is_none()
+            {
+                println!("FUCKIN PROBLEM HOMIE");
+            }
+            g_scores.insert(neighbour_pt.clone(), tentative_g);
+        }
+
+    }
+
+    return u32::MAX;
+}
+
+fn task2_attempt2(file_input: &String) -> i64 {
+    let machines = parse_machines(file_input, true);
+    let mut total = 0;
+    for (index, machine) in machines.iter().enumerate() {
+        let cost = astar(machine, &vec![0; machine.joltages.len()], &machine.joltages);
+        total += cost;
+
+        println!("Complete {}/{}", index+1, machines.len());
+    }
+
+    return total as i64;
+}
+
+fn gaussian_elimination(
+    A: Vec<Vec<i16>>,
+    height: usize,
+    width: usize,
+) -> Vec<Vec<i16>>
+{
+    let mut matrix = A.clone();
+    let mut pivot_row: usize = 0; // pivot row
+    let mut pivot_col: usize = 0; // pivot column
+
+    while (pivot_row < height &&  pivot_col < width) {
+
+        //Find the k-th pivot (i.e. the pivot in the column)
+        //(i.e. the index of the pivot)
+        let mut idx_max: usize = 0;
+        let mut val_max: i16 = 0;
+        for i in pivot_row..height {
+            let value = (matrix[i as usize][pivot_col as usize]).abs() as i16;
+            if(value > val_max)
+            {
+                val_max = value;
+                idx_max = i;
+            }
+        }
+
+        //If idx_max == 0 then there is no pivot in this column
+        if(val_max == 0) {
+            pivot_col += 1;
+            continue
+        }
+
+        //If we reached here we have identified a pivot in the column
+        //Swap pivot row with i_max
+        let temp1 = matrix[pivot_row].clone();
+        let temp2 = matrix[idx_max].clone();
+        matrix[idx_max] = temp1;
+        matrix[pivot_row] = temp2;
+
+        //Iterate all rows before the pivot
+        for i in pivot_row +1..height {
+            let f = matrix[i][pivot_col] / matrix[pivot_row][pivot_col];
+
+            //Fill lower part of pivot column with zeros
+            matrix[i][pivot_col] = 0;
+
+            //For rest of elements in the current row
+            for j in pivot_col +1..width {
+                matrix[i][j] = matrix[i][j] - matrix[pivot_row][j] * f;
+            }
+        }
+
+        //Increment pivots
+        pivot_row += 1;
+        pivot_col += 1;
+    }
+
+    return matrix;
+}
+
+fn gauss_jordan_elimination(
+    mut matrix: Vec<Vec<i16>>,
+    height: usize,
+    width: usize
+) -> Vec<Vec<i16>> {
+    let rows = height;
+    let cols = width;
+
+    let mut pivot_row = 0;
+    let mut pivot_col = 0;
+
+    while pivot_row < rows && pivot_col < cols {
+        //Find the pivot in the given column (row index with the highest value)
+        let mut max_row = pivot_row;
+        let mut max_val = 0;
+        for i in pivot_row+1..rows-1 {
+            let val = matrix[i][pivot_col].abs();
+            if(val > max_val)
+            {
+                max_row = i;
+                max_val = val;
+            }
+        }
+
+        //Swap rows to bring the max element to the pivot position
+        if(max_row != pivot_row)
+        {
+            let temp1 = matrix[pivot_row].clone();
+            let temp2 = matrix[max_row].clone();
+            matrix[max_row] = temp1;
+            matrix[pivot_row] = temp2;
+        }
+
+        //Check if the pivot is zero
+        if(max_val == 0)
+        {
+            //Matrix is singular or all zeros in column, move to next column
+            pivot_col += 1;
+            continue
+        }
+
+        //Normalize pivot row (make pivot value 1)
+        let pivot_value = matrix[pivot_row][pivot_col];
+        for cur_column in pivot_col..cols-1 {
+            matrix[pivot_row][cur_column] = matrix[pivot_row][cur_column] / pivot_value;
+        }
+
+        //Eliminate other entries in the pivot column
+        for cur_row in 0..rows-1 {
+            if cur_row != pivot_row {
+                let factor = matrix[cur_row][pivot_col];
+                for cur_column in pivot_col..cols-1 {
+                    matrix[cur_row][cur_column] = matrix[cur_row][cur_column] - factor * matrix[pivot_row][pivot_col];
+                }
+            }
+        }
+
+        //Increment pivot positions
+        pivot_row += 1;
+        pivot_col += 1;
+    }
+
+    return matrix;
+}
+
+fn get_solutions(
+    matrix: &Vec<Vec<i16>>, // In row-echelon form
+    height: usize,
+    width: usize,
+) -> Vec<Option<i32>>
+{
+
+    let num_vars = width - 1;
+    let mut solutions: Vec<Option<i32>> = vec![None; num_vars];
+
+    // for row_idx in 0..height {
+    //     let row = &matrix[row_idx];
+    //     let constant = row[num_vars];
+    //
+    //     let coefficients = row.iter()
+    //       .enumerate()
+    //       .filter(|(index, coefficient)| return **coefficient != 0 && *index < num_vars)
+    //       .collect::<Vec<_>>();
+    //
+    //     if(coefficients.len() == 1)
+    //     {
+    //         let (index, coefficient) = coefficients[0];
+    //         solutions[index] = Some((constant / *coefficient) as i32);
+    //     }
+    // }
+
+    loop {
+        let mut found_more_solutions = false;
+
+        for row_idx in 0..height {
+            let row = &matrix[row_idx];
+
+            let equations = row.iter()
+              .enumerate()
+              .filter(|(index, coefficient)| return **coefficient != 0 && *index < num_vars)
+              .map(|(index, coefficient)| {
+                  return (index, coefficient, solutions[index])
+              })
+              .collect::<Vec<_>>();
+
+            let missing_terms = equations.iter()
+              .filter(|(_index, _coefficient, solution)| solution.is_none())
+              .collect::<Vec<_>>();
+
+            //If the number of missing terms is exactly 1, we can solve for it
+            if(missing_terms.iter().count() == 1)
+            {
+                let constant = row[num_vars];
+                let mut result = constant;
+
+                let combined_terms = equations.iter()
+                  .filter(|(_index, _coefficient, solution)| solution.is_some())
+                  .map(|(index, coefficient, solution)| solution.unwrap() * **coefficient as i32)
+                  .sum::<i32>();
+
+                let missing_index = **missing_terms.iter()
+                  .map(|(index, _coefficient, _solution)| index)
+                  .collect::<Vec<_>>()
+                  .first()
+                  .unwrap();
+                let missing_coefficient = row[missing_index];
+
+                result -= combined_terms as i16;
+                result *= missing_coefficient;
+                solutions[missing_index as usize] = Some(result as i32);
+                found_more_solutions = true;
+            }
+        }
+
+        if !found_more_solutions {
+            break;
+        }
+    }
+
+    return solutions;
+}
+
+// fn get_free_variables(
+//     matrix: &Vec<Vec<i16>>, // In row-echelon form
+//     height: usize,
+//     width: usize,
+// )
+// {
+//     let mut pivot_cols: Vec<u16> = Vec::new();
+//     let mut cur_row = 0;
+//
+//     for cur_column in 0..width-1 {
+//         if(cur_row < height)
+//         {
+//             let value = matrix[cur_row][cur_column];
+//             if(value == 1)
+//             {
+//                 pivot_cols.push(cur_row as u16);
+//                 cur_row += 1;
+//             }
+//         }
+//     }
+//
+//     let mut free_variables = Vec::new();
+//     for cur_column in 0..height-1 {
+//         if !pivot_cols.contains(&(cur_column as u16)) {
+//             free_variables.push(cur_column as u16);
+//         }
+//     }
+//
+//     return free_variables;
+// }
+
+
+fn get_neighbours_2(
+    machine: &Machine,
+    current: &Point,
+    goal: &Point,
+    solutions: &Vec<Option<i32>>
+) -> Vec<(u16, Point)>
+{
+    let mut results = Vec::new();
+
+    for (index, solution) in solutions.iter().enumerate() {
+        if(solution.is_none())
+        {
+            let button = &machine.buttons[index];
+            let mut neighbour = current.clone();
+            let mut neighbour_valid = true;
+            let mut num_presses = 0;
+
+            for wiring in button.get_button_wirings() {
+                neighbour[wiring as usize] += 1;
+
+                if neighbour[wiring as usize] > goal[wiring as usize]
+                {
+                    neighbour_valid = false;
+                    break;
+                }
+            }
+
+            if neighbour_valid {
+                results.push((1, neighbour))
+            }
+        }
+    }
+
+    // for button in &machine.buttons {
+    //     let mut num_presses = 1;
+    //
+    //     loop {
+    //         let mut neighbour_pt: Point = current.clone();
+    //         let mut neighbour_valid = true;
+    //         let mut g_cost = 0;
+    //
+    //         for wiring in button.get_button_wirings() {
+    //             neighbour_pt[wiring as usize] += num_presses;
+    //             g_cost += num_presses;
+    //
+    //             if neighbour_pt[wiring as usize] > goal[wiring as usize]
+    //             {
+    //                 neighbour_valid = false;
+    //                 break;
+    //             }
+    //         }
+    //
+    //         if !neighbour_valid {
+    //             break;
+    //         }
+    //
+    //         results.push((g_cost, neighbour_pt));
+    //         num_presses = num_presses + 1;
+    //     }
+    // }
+
+    return results;
+}
+
+fn astar_2(
+    machine: &Machine,
+    start: &Point,
+    goal: &Point,
+    solutions: &Vec<Option<i32>>
+) -> u32
+{
+    let mut open_set = PriorityQueue::new();
+    let mut closed_set: HashSet<Point> = HashSet::new();
+    let mut g_scores: HashMap<Point, u32> = HashMap::new();
+    let mut came_from: HashMap<Point, Point> = HashMap::new();
+
+    let initial_h = heuristic(start, goal);
+    open_set.push(start.clone(), Reverse(initial_h));
+    g_scores.insert(start.clone(), 0);
+
+    while !open_set.is_empty() {
+        let current = open_set.pop().unwrap().0;
+
+        // println!("{:?}", open_set.clone().into_iter().collect::<Vec<_>>());
+        if current == *goal {
+            //TODO - Reconstruct path? Don't actually need to
+            let g_score = g_scores[&current];
+
+            let mut c = Some(goal);
+            while c.is_some() {
+                println!("came from {:?} {}", c.unwrap(), g_scores[c.unwrap()]);
+                c = came_from.get(c.unwrap())
+            }
+
+            return g_score;
+        }
+
+        closed_set.insert(current.clone());
+
+        let neighbours = get_neighbours_2(machine, &current, &goal, &solutions);
+
+        //Find neighbours of the current state
+        for neighbour in &neighbours {
+            let g_cost = neighbour.0;
+            let neighbour_pt = &neighbour.1;
+
+            //If neighbour is not a valid neighbour or is in the closed set, we skip it
+            if(closed_set.contains(neighbour_pt))
+            {
+                // println!("SKIP {}, {}", !neighbour_valid, closed_set.contains(&neighbour_pt));
+                continue;
+            }
+
+            //TODO - Could improve this by generating neighbours as n presses of button?
+            //G score is previous score + 1 as each neighbour requires 1 iteration
+            let tentative_g = g_scores.get(&current).unwrap() + g_cost as u32;
+            let h_cost = heuristic(&neighbour_pt, goal);
+            let f_cost = tentative_g + h_cost;
+
+            let open_set_neighbour = open_set.get(neighbour_pt);
+            //If we have not yet explored this neighbour, add it to the open set
+            if open_set_neighbour.is_none() {
+                open_set.push(neighbour_pt.clone(), Reverse(f_cost));
+            }
+            // This is worse than current method to this neighbour, ignore it
+            else if(tentative_g >= g_scores[open_set_neighbour.unwrap().0]) {
+                continue
+            }
+
+            // We found a better solution, override current solution
+            came_from.insert(neighbour_pt.clone(), current.clone());
+            let old_opt = open_set.change_priority(neighbour_pt, Reverse(f_cost));
+            if old_opt.is_none()
+            {
+                println!("FUCKIN PROBLEM HOMIE");
+            }
+            g_scores.insert(neighbour_pt.clone(), tentative_g);
+        }
+
+    }
+
+    return u32::MAX;
+}
+
+fn task2_attempt3(file_input: &String) -> i64 {
+    let machines = parse_machines(file_input, true);
+    let mut total_result = 0;
+
+    for (index, machine) in machines.iter().enumerate() {
+        let mut matrix: Vec<Vec<i16>> = vec![vec![0; machine.buttons.len() + 1]; machine.joltages.len()];
+
+        for (joltage_index, joltage) in machine.joltages.iter().enumerate() {
+            let row_len = matrix[joltage_index].len();
+            matrix[joltage_index][row_len - 1] = *joltage as i16;
+        }
+
+        for (button_idx, button) in machine.buttons.iter().enumerate() {
+            for wiring in button.get_button_wirings() {
+                matrix[wiring as usize][button_idx] = 1;
+            }
+        }
+
+        let m = matrix.len();
+        let n = matrix[0].len();
+        let elim_matrix = gaussian_elimination(matrix, m, n);
+        println!("Gaussian {:?} ", elim_matrix);
+        let solutions = get_solutions(&elim_matrix, m, n);
+        println!("Solutions {:?} ", solutions);
+
+        let mut start: Point = vec![0; machine.joltages.len()];
+        let mut num_initial_presses = 0;
+        for (index, num_presses) in solutions.iter().enumerate() {
+            if(num_presses.is_some())
+            {
+                let button = &machine.buttons[index];
+                for wiring in button.get_button_wirings() {
+                    start[wiring as usize] += num_presses.unwrap() as u16;
+                }
+                num_initial_presses += num_presses.unwrap() as u16;
+            }
+        }
+
+        println!("Start {:?} ", start);
+
+        let mut result: u64 = num_initial_presses as u64;
+        if(start != machine.joltages)
+        {
+            result += astar_2(&machine, &start, &machine.joltages, &solutions) as u64;
+        }
+
+
+        //
+        // let start = vec![0; machine.joltages.len()];
+        // let result = astar(&machine, &start, &machine.joltages);
+
+        println!("Result {:?} ", result);
+
+        println!("Complete {}/{}", index+1, machines.len());
+
+        total_result += result;
+    }
+
+    return total_result as i64;
+}
+
 pub fn task2(file_input: &String) -> i64 {
-    task2_attempt1(file_input);
+
+    let machines = parse_machines(file_input, true);
+    let mut total: i64 = 0;
+
+    for machine in &machines {
+        let mut solver_variables = variables!();
+
+        let button_presses_variables: Vec<Variable> = machine.buttons.iter()
+          .map(|_| solver_variables.add(variable().min(0).integer()))
+          .collect();
+
+        println!("Solver variables {:?}", button_presses_variables);
+
+        //Express that calculates the total number of button presses based on the sum of how
+        //many times each button was pressed
+        let total_presses: Expression = button_presses_variables.iter().sum();
+
+        let mut problem = solver_variables
+          .minimise(total_presses)
+          .using(default_solver); // Uses default iBM cbc solver
+
+        for (joltage_idx, joltage) in machine.joltages.iter().enumerate() {
+            //Defines an expression that adds up the button pressess of each button connected
+            //to this joltage output to calculate the final total
+            let mut expression = Expression::from(0);
+
+            for (button_idx, button) in machine.buttons.iter().enumerate() {
+                for wiring in button.get_button_wirings() {
+                    if(wiring as usize == joltage_idx)
+                    {
+                        expression = expression.add(button_presses_variables[button_idx]);
+                    }
+                }
+            }
+
+            //The number of button presses linked to this joltage input has to sum
+            //to the expected joltage output
+            problem.add_constraint(expression.eq(*joltage as i32));
+        }
+
+        let solution = problem.solve().unwrap();
+
+        let result = button_presses_variables.iter()
+          .map(|variable| {
+              return solution.value(*variable) as i32
+          })
+          .sum::<i32>();
+
+        total += result as i64;
+    }
+
+    return total;
+
+
+
+    // task2_attempt1(file_input);
 
     //Generate all button press sequences,
     //Store how many button presses it took to get to each sequence (minimum)
@@ -390,6 +1035,11 @@ pub fn task2(file_input: &String) -> i64 {
     // (Did not find a solution, increment the number of iterations)
     // num_iterations += 1
     //
+    //Astar
+    // Heuristic:
+    //  max of (joltage(i)) - (expected(joltage(i))
+
+    //Idea what if we pre-calculate 0 cost diffs?
 
 
 

@@ -4,8 +4,11 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+coin_cbc = { version = "0.1", optional = true, default-features = false }
 criterion = { version = "0.8.1", features = ["html_reports"] }
 colored = "3.0.0"
+priority-queue = "2.7.0"
+good_lp = "1.14.1"
 
 [[bench]]
 name = "benchmark"
